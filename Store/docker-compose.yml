@@ -1,0 +1,96 @@
+services:
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./app:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - store-network
+
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - ./app:/var/www/html
+      - vendor-data:/var/www/html/vendor
+      - node-modules-data:/var/www/html/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - store-network
+
+  node:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./realtime:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - store-network
+    environment:
+      - PORT=3000
+      - API_SECRET=realtime-secret-key
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: store
+      MYSQL_USER: store_user
+      MYSQL_PASSWORD: secret
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - store-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    ports:
+      - "8888:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: rootpassword
+    depends_on:
+      - mysql
+    networks:
+      - store-network
+
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    command: listen --forward-to http://nginx/api/stripe/webhook --skip-verify
+    environment:
+      - STRIPE_API_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_DEVICE_NAME=store-docker-dev
+    depends_on:
+      - nginx
+    networks:
+      - store-network
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  vendor-data:
+  node-modules-data:
+
+networks:
+  store-network:
+    driver: bridge

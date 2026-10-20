@@ -1,0 +1,103 @@
+================================================================
+  HOW TO RUN - Store (Laravel + React + Docker)
+================================================================
+
+STEP 1 - Start all containers
+----------------------------------------------------------------
+docker compose up -d
+
+Wait until all 6 containers are running:
+  - store-nginx-1
+  - store-php-1
+  - store-node-1
+  - store-mysql-1
+  - store-phpmyadmin-1
+  - store-stripe-cli-1
+
+Check status anytime with:
+  docker compose ps
+
+
+STEP 2 - Install dependencies (first time only)
+----------------------------------------------------------------
+docker compose exec php composer install
+docker compose exec php npm install
+
+
+STEP 3 - Run database migrations (first time only)
+----------------------------------------------------------------
+docker compose exec php php artisan migrate --seed
+
+  If asked "run in production?" type: yes
+
+
+STEP 4 - Fix storage permissions (only if you see permission errors)
+----------------------------------------------------------------
+docker compose exec php chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+docker compose exec php chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+
+STEP 5 - Get the Stripe webhook secret (first time only)
+----------------------------------------------------------------
+docker compose logs stripe-cli
+
+Look for this line in the output:
+  Your webhook signing secret is whsec_xxxxxxxxxxxxxxxxxx
+
+Paste it into app/.env:
+  STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxx
+
+Then run:
+  docker compose exec php php artisan config:clear
+
+
+STEP 6 - Start the Vite frontend   KEEP THIS TERMINAL OPEN
+----------------------------------------------------------------
+docker compose exec php npm run dev
+
+You should see:
+  VITE ready in xxxx ms
+  Local: http://localhost:5173/
+
+
+================================================================
+  YOUR URLS
+================================================================
+
+  Store        ->  http://localhost:8000
+  Admin Panel  ->  http://localhost:8000/admin/login
+  phpMyAdmin   ->  http://localhost:8888
+
+  Admin login  ->  username: admin  |  password: admin
+
+
+================================================================
+  TEST STRIPE PAYMENT
+================================================================
+
+Use this test card at checkout:
+
+  Card Number  :  4242 4242 4242 4242
+  Expiry       :  Any future date  (e.g. 12/29)
+  CVC          :  Any 3 digits     (e.g. 123)
+  ZIP          :  Any 5 digits     (e.g. 12345)
+
+Watch webhook events live in a separate terminal:
+  docker compose logs -f stripe-cli
+
+Expected output after a successful payment:
+  <-- payment_intent.succeeded
+  --> POST http://nginx/api/stripe/webhook [200]
+
+The admin payments page updates live without refreshing:
+  http://localhost:8000/admin/payments
+
+
+================================================================
+  STOP EVERYTHING
+================================================================
+
+  docker compose down
+
+
+================================================================
