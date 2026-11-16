@@ -31,7 +31,7 @@ export default function AdminPaymentsIndex({ payments: initialPayments }) {
     const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        const socket = io('http://localhost:3000', { transports: ['websocket', 'polling'] });
+        const socket = io(import.meta.env.VITE_REALTIME_URL || 'http://localhost:3000', { transports: ['websocket', 'polling'] });
 
         socket.on('connect',    () => setConnected(true));
         socket.on('disconnect', () => setConnected(false));

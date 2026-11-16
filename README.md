@@ -26,3 +26,7 @@ docker compose exec php php artisan migrate --seed --force
 Open http://localhost:8000 (admin: http://localhost:8000/admin/login).
 
 Full setup, services and ports are in [`Store/README.md`](Store/README.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
